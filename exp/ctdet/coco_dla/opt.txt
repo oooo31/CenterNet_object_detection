@@ -1,0 +1,65 @@
+==> torch version: 1.1.0
+==> cudnn version: 7501
+==> Cmd:
+['test.py', '--exp_id', 'coco_dla', '--load_model', 'checkpoints/ctdet_coco_dla_2x.pth']
+==> Opt:
+  K: 100
+  arch: dla_34
+  batch_size: 32
+  chunk_sizes: [32]
+  data_dir: /home/feiyu/center_net/data
+  debug: 0
+  debug_dir: /home/feiyu/center_net/exp/ctdet/coco_dla/debug
+  debugger_theme: white
+  demo: 
+  down_ratio: 4
+  eval_oracle_dep: False
+  eval_oracle_hm: False
+  eval_oracle_hmhp: False
+  eval_oracle_hp_offset: False
+  eval_oracle_kps: False
+  eval_oracle_offset: False
+  eval_oracle_wh: False
+  exp_dir: /home/feiyu/center_net/exp/ctdet
+  exp_id: coco_dla
+  fix_res: False
+  flip: 0.5
+  flip_test: False
+  gpus: [0]
+  gpus_str: 0
+  head_conv: 256
+  heads: {'hm': 80, 'wh': 2, 'reg': 2}
+  hide_data_time: False
+  hm_weight: 1
+  input_h: 512
+  input_res: 512
+  input_w: 512
+  load_model: checkpoints/ctdet_coco_dla_2x.pth
+  lr: 0.000125
+  lr_step: [90, 120]
+  master_batch_size: 32
+  mean: [[[0.40789655 0.44719303 0.47026116]]]
+  metric: loss
+  not_cuda_benchmark: False
+  num_classes: 80
+  num_epochs: 140
+  num_iters: -1
+  num_stacks: 1
+  off_weight: 1
+  output_h: 128
+  output_res: 128
+  output_w: 128
+  pad: 31
+  print_iter: 0
+  reg_offset: True
+  resume: False
+  root_dir: /home/feiyu/center_net/
+  save_all: False
+  save_dir: /home/feiyu/center_net/exp/ctdet/coco_dla
+  seed: 317
+  std: [[[0.2886383  0.27408165 0.27809834]]]
+  test_scales: [1.0]
+  trainval: False
+  val_intervals: 1
+  vis_thresh: 0.3
+  wh_weight: 0.1
