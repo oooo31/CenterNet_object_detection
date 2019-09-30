@@ -117,18 +117,6 @@ class CtdetTrainer:
             else:
                 debugger.show_all_imgs(pause=True)
 
-    def save_result(self, output, batch, results):
-        reg = output['reg'] if self.opt.reg_offset else None
-        dets = ctdet_decode(
-            output['hm'], output['wh'], reg=reg,
-            cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
-        dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
-        dets_out = ctdet_post_process(
-            dets.copy(), batch['meta']['c'].cpu().numpy(),
-            batch['meta']['s'].cpu().numpy(),
-            output['hm'].shape[2], output['hm'].shape[3], output['hm'].shape[1])
-        results[batch['meta']['img_id'].cpu().numpy()[0]] = dets_out[0]
-
     def set_device(self, gpus, chunk_sizes, device):
         if len(gpus) > 1:
             self.model_with_loss = DataParallel(self.model_with_loss, device_ids=gpus, chunk_sizes=chunk_sizes).to(device)
@@ -192,8 +180,6 @@ class CtdetTrainer:
             if opt.debug > 0:
                 self.debug(batch, output, iter_id)
 
-            if opt.test:
-                self.save_result(output, batch, results)
             del output, loss, loss_stats
 
         bar.finish()

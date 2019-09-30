@@ -9,7 +9,7 @@ from trainer import CtdetTrainer
 
 def main(opt):
     torch.manual_seed(opt.seed)
-    torch.backends.cudnn.benchmark = not opt.not_cuda_benchmark and not opt.test
+    torch.backends.cudnn.benchmark = not opt.not_cuda_benchmark
     opt = opts.update_dataset_info_and_set_heads(opt, COCO)
     print(opt)
 
