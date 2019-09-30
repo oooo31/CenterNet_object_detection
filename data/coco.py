@@ -4,11 +4,12 @@ import json
 import numpy as np
 import cv2
 import os
-from utils.image import color_aug, get_border
+from utils.image import color_aug, get_border, coco2x1y1x2y2
 from utils.image import get_affine_transform, affine_transform
 from utils.image import gaussian_radius, draw_umich_gaussian
 import math
 import cfg
+import pdb
 import torch.utils.data as data
 
 class COCO(data.Dataset):
@@ -96,11 +97,6 @@ class COCO(data.Dataset):
         coco_eval.accumulate()
         coco_eval.summarize()
 
-    @staticmethod
-    def _coco_box_to_bbox(box):
-        bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]], dtype=np.float32)
-        return bbox
-
     def __getitem__(self, index):
         img_id = self.images[index]
         file_name = self.coco.loadImgs(ids=[img_id])[0]['file_name']
@@ -126,6 +122,7 @@ class COCO(data.Dataset):
             s = s * np.random.choice(np.arange(0.6, 1.4, 0.1))
             w_border = get_border(128, img.shape[1])
             h_border = get_border(128, img.shape[0])
+
             c[0] = np.random.randint(low=w_border, high=img.shape[1] - w_border)
             c[1] = np.random.randint(low=h_border, high=img.shape[0] - h_border)
 
@@ -134,18 +131,20 @@ class COCO(data.Dataset):
                 img = img[:, ::-1, :]
                 c[0] = width - c[0] - 1
 
-        trans_input = get_affine_transform(c, s, 0, [input_w, input_h])
-        inp = cv2.warpAffine(img, trans_input, (input_w, input_h), flags=cv2.INTER_LINEAR)
+        trans_matrix = get_affine_transform(c, s, 0, [input_w, input_h])
+        inp = cv2.warpAffine(img, trans_matrix, (input_w, input_h), flags=cv2.INTER_LINEAR)
         inp = inp.astype(np.float32) / 255.
 
+        # TODO:inp appears numbers below 0 after color_aug
         if self.split == 'train':
             color_aug(self._data_rng, inp, self._eig_val, self._eig_vec)
+
         inp = (inp - cfg.mean) / cfg.std
         inp = inp.transpose(2, 0, 1)
 
         output_h = input_h // cfg.down_ratio
         output_w = input_w // cfg.down_ratio
-        trans_output = get_affine_transform(c, s, 0, [output_w, output_h])
+        trans_matrix = get_affine_transform(c, s, 0, [output_w, output_h])
 
         hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
         wh = np.zeros((cfg.max_objs, 2), dtype=np.float32)
@@ -154,36 +153,36 @@ class COCO(data.Dataset):
         reg_mask = np.zeros(cfg.max_objs, dtype=np.uint8)
 
         gt_det = []
-        for k in range(num_objs):
-            ann = anns[k]
-            bbox = self._coco_box_to_bbox(ann['bbox'])
+        for i in range(num_objs):
+            ann = anns[i]
+            bbox = coco2x1y1x2y2(ann['bbox'])
             cls_id = int(self.cat_ids[ann['category_id']])
             if flipped:
                 bbox[[0, 2]] = width - bbox[[2, 0]] - 1
-            bbox[:2] = affine_transform(bbox[:2], trans_output)
-            bbox[2:] = affine_transform(bbox[2:], trans_output)
+            bbox[:2] = affine_transform(bbox[:2], trans_matrix)
+            bbox[2:] = affine_transform(bbox[2:], trans_matrix)
             bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, output_w - 1)
             bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, output_h - 1)
             h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
 
             if h > 0 and w > 0:
+                # get an object size-adapative radius
                 radius = gaussian_radius((math.ceil(h), math.ceil(w)))
                 radius = max(0, int(radius))
                 ct = np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
                 ct_int = ct.astype(np.int32)
 
                 draw_umich_gaussian(hm[cls_id], ct_int, radius)
-                wh[k] = 1. * w, 1. * h
-                ind[k] = ct_int[1] * output_w + ct_int[0]
-                reg[k] = ct - ct_int
-                reg_mask[k] = 1
+                # 没有返回值，heatmap也没出现在等号左边，hm[cls_id]如何被改变？
+                wh[i] = 1. * w, 1. * h
+                ind[i] = ct_int[1] * output_w + ct_int[0]
+                reg[i] = ct - ct_int
+                reg_mask[i] = 1
 
                 gt_det.append([ct[0] - w / 2, ct[1] - h / 2, ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
 
-        ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh}
+        ret = {'input': inp, 'hm': hm, 'reg': reg, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh}
 
-        if self.opt.reg_offset:
-            ret.update({'reg': reg})
         if self.opt.debug > 0 or not self.split == 'train':
             gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else np.zeros((1, 6), dtype=np.float32)
             meta = {'c': c, 's': s, 'gt_det': gt_det, 'img_id': img_id}

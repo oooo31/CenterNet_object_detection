@@ -127,7 +127,6 @@ class opts(object):
         opt.gpus = [i for i in range(len(opt.gpus))] if opt.gpus[0] >= 0 else [-1]
         opt.lr_step = [int(i) for i in opt.lr_step.split(',')]
         opt.test_scales = [float(i) for i in opt.test_scales.split(',')]
-        opt.reg_offset = True
 
         if opt.head_conv == -1:  # init default head_conv
             opt.head_conv = 256 if 'dla' in opt.arch else 64
@@ -184,9 +183,7 @@ class opts(object):
         opt.output_res = max(opt.output_h, opt.output_w)
 
         # assert opt.dataset in ['pascal', 'coco']
-        opt.heads = {'hm': opt.num_classes, 'wh': 2}
-        if opt.reg_offset:
-            opt.heads.update({'reg': 2})
+        opt.heads = {'hm': opt.num_classes, 'wh': 2, 'reg': 2}
 
         return opt
 

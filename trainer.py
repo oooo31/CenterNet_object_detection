@@ -62,7 +62,7 @@ class CtdetLoss(torch.nn.Module):
                     output['wh'], batch['reg_mask'],
                     batch['ind'], batch['wh']) / opt.num_stacks
 
-            if opt.reg_offset and opt.off_weight > 0:
+            if opt.off_weight > 0:
                 off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                                           batch['ind'], batch['reg']) / opt.num_stacks
 
@@ -154,6 +154,7 @@ class CtdetTrainer:
             for k in batch:
                 if k != 'meta':
                     batch[k] = batch[k].to(device=opt.device, non_blocking=True)
+            # exit()
             output, loss, loss_stats = model_with_loss(batch)
             loss = loss.mean()
 

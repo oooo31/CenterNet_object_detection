@@ -10,13 +10,15 @@ def transform_preds(coords, center, scale, output_size):
         target_coords[p, 0:2] = affine_transform(coords[p, 0:2], trans)
     return target_coords
 
+def coco2x1y1x2y2(box):
+    bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]], dtype=np.float32)
+    return bbox
 
 def get_affine_transform(center, scale, rot, output_size, shift=np.array([0, 0], dtype=np.float32), inv=0):
     if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
         scale = np.array([scale, scale], dtype=np.float32)
 
-    scale_tmp = scale
-    src_w = scale_tmp[0]
+    src_w = scale[0]
     dst_w = output_size[0]
     dst_h = output_size[1]
 
@@ -26,8 +28,8 @@ def get_affine_transform(center, scale, rot, output_size, shift=np.array([0, 0],
 
     src = np.zeros((3, 2), dtype=np.float32)
     dst = np.zeros((3, 2), dtype=np.float32)
-    src[0, :] = center + scale_tmp * shift
-    src[1, :] = center + src_dir + scale_tmp * shift
+    src[0, :] = center + scale * shift
+    src[1, :] = center + src_dir + scale * shift
     dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
     dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5], np.float32) + dst_dir
 

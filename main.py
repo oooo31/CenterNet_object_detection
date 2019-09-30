@@ -35,7 +35,7 @@ def main(opt):
 
     train_loader = data.DataLoader(COCO(opt, 'train'),
                                    batch_size=opt.batch_size,
-                                   shuffle=True,
+                                   shuffle=False,
                                    num_workers=1,
                                    pin_memory=True,
                                    drop_last=True)
