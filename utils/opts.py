@@ -64,14 +64,6 @@ class opts(object):
                                  help='use ground truth bounding box size.')
         self.parser.add_argument('--eval_oracle_offset', action='store_true',
                                  help='use ground truth local heatmap offset.')
-        self.parser.add_argument('--eval_oracle_kps', action='store_true',
-                                 help='use ground truth human pose offset.')
-        self.parser.add_argument('--eval_oracle_hmhp', action='store_true',
-                                 help='use ground truth human joint heatmaps.')
-        self.parser.add_argument('--eval_oracle_hp_offset', action='store_true',
-                                 help='use ground truth human joint local offset.')
-        self.parser.add_argument('--eval_oracle_dep', action='store_true',
-                                 help='use ground truth depth.')
 
         # test
         self.parser.add_argument('--flip_test', action='store_true', help='flip data augmentation.')
@@ -86,13 +78,6 @@ class opts(object):
 
         self.parser.add_argument('--resume', default=None, type=str, help='The path of checkpoint file to resume'
                                                                           'training from, \'last\' for model_last.pth.')
-        # ctdet
-        self.parser.add_argument('--hm_weight', type=float, default=1,
-                                 help='loss weight for keypoint heatmaps.')
-        self.parser.add_argument('--off_weight', type=float, default=1,
-                                 help='loss weight for keypoint local offsets.')
-        self.parser.add_argument('--wh_weight', type=float, default=0.1,
-                                 help='loss weight for bounding box size.')
 
     def parse(self):
         opt = self.parser.parse_args()

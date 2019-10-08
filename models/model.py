@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.pose_dla_dcn import get_pose_net as get_dla_dcn
+from models.dla_dcn import get_net as get_dla_dcn
 from models.resnet_dcn import get_pose_net as get_pose_net_dcn
 from models.large_hourglass import get_large_hourglass_net
 

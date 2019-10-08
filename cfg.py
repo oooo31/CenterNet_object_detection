@@ -8,3 +8,6 @@ num_classes = 80
 mean = np.array([0.40789654, 0.44719302, 0.47026115], dtype=np.float32).reshape(1, 1, 3)
 std = np.array([0.28863828, 0.27408164, 0.27809835], dtype=np.float32).reshape(1, 1, 3)
 max_objs = 128
+hm_weight = 1
+wh_weight = 0.1
+off_weight = 1

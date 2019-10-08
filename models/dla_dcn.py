@@ -284,7 +284,7 @@ class DLASeg(nn.Module):
         return [z]
 
 
-def get_pose_net(num_layers, heads, head_conv=256):
+def get_net(num_layers, heads, head_conv=256):
     model = DLASeg(heads=heads,
                    pretrained=True,
                    final_kernel=1,
