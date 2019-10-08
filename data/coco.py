@@ -9,7 +9,6 @@ from utils.image import get_affine_transform, affine_transform
 from utils.image import gaussian_radius, draw_umich_gaussian
 import math
 import cfg
-import pdb
 import torch.utils.data as data
 
 class COCO(data.Dataset):
@@ -111,7 +110,7 @@ class COCO(data.Dataset):
 
         if self.split == 'train':
             s = max(img.shape[0], img.shape[1]) * 1.0
-            input_h, input_w = self.opt.input_h, self.opt.input_w
+            input_h, input_w = cfg.train_resolution[0], cfg.train_resolution[1]
         else:
             input_h = (height | self.opt.pad) + 1
             input_w = (width | self.opt.pad) + 1
@@ -135,7 +134,7 @@ class COCO(data.Dataset):
         inp = cv2.warpAffine(img, trans_matrix, (input_w, input_h), flags=cv2.INTER_LINEAR)
         inp = inp.astype(np.float32) / 255.
 
-        # TODO:inp appears numbers below 0 after color_aug
+        # TODO:inp appears numbers below 0 after color_aug (myself)
         if self.split == 'train':
             color_aug(self._data_rng, inp, self._eig_val, self._eig_vec)
 
@@ -152,7 +151,7 @@ class COCO(data.Dataset):
         ind = np.zeros(cfg.max_objs, dtype=np.int64)
         reg_mask = np.zeros(cfg.max_objs, dtype=np.uint8)
 
-        gt_det = []
+        gt_box = []
         for i in range(num_objs):
             ann = anns[i]
             bbox = coco2x1y1x2y2(ann['bbox'])
@@ -173,18 +172,18 @@ class COCO(data.Dataset):
                 ct_int = ct.astype(np.int32)
 
                 draw_umich_gaussian(hm[cls_id], ct_int, radius)
-                # 没有返回值，heatmap也没出现在等号左边，hm[cls_id]如何被改变？
+
                 wh[i] = 1. * w, 1. * h
                 ind[i] = ct_int[1] * output_w + ct_int[0]
                 reg[i] = ct - ct_int
                 reg_mask[i] = 1
 
-                gt_det.append([ct[0] - w / 2, ct[1] - h / 2, ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
+                gt_box.append([ct[0] - w / 2, ct[1] - h / 2, ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
 
         ret = {'input': inp, 'hm': hm, 'reg': reg, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh}
 
         if self.opt.debug > 0 or not self.split == 'train':
-            gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else np.zeros((1, 6), dtype=np.float32)
-            meta = {'c': c, 's': s, 'gt_det': gt_det, 'img_id': img_id}
+            gt_box = np.array(gt_box, dtype=np.float32) if len(gt_box) > 0 else np.zeros((1, 6), dtype=np.float32)
+            meta = {'c': c, 's': s, 'gt_det': gt_box, 'img_id': img_id}
             ret['meta'] = meta
         return ret

@@ -48,9 +48,7 @@ class CtdetDetector(object):
 
         trans_input = get_affine_transform(c, s, 0, [inp_width, inp_height])
         resized_image = cv2.resize(image, (new_width, new_height))
-        inp_image = cv2.warpAffine(
-            resized_image, trans_input, (inp_width, inp_height),
-            flags=cv2.INTER_LINEAR)
+        inp_image = cv2.warpAffine(resized_image, trans_input, (inp_width, inp_height), flags=cv2.INTER_LINEAR)
         inp_image = ((inp_image / 255. - self.mean) / self.std).astype(np.float32)
 
         images = inp_image.transpose(2, 0, 1).reshape(1, 3, inp_height, inp_width)
