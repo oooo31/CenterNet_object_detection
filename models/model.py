@@ -1,26 +1,25 @@
 import torch
 import torch.nn as nn
 
-from models.dla_dcn import get_net as get_dla_dcn
-from models.resnet_dcn import get_pose_net as get_pose_net_dcn
-from models.large_hourglass import get_large_hourglass_net
+from models.dla_dcn import get_net as dla_dcn
+from models.resnet_dcn import get_net as resnet_dcn
+from models.large_hourglass import get_net as hourglass
 
-_model_factory = {'dla': get_dla_dcn,
-                  'resdcn': get_pose_net_dcn,
-                  'hourglass': get_large_hourglass_net}
+_model_factory = {'dla': dla_dcn,
+                  'resdcn': resnet_dcn,
+                  'hourglass': hourglass}
 
 
-def create_model(arch, heads, head_conv):
-    num_layers = int(arch[arch.find('_') + 1:]) if '_' in arch else 0
-    arch = arch[:arch.find('_')] if '_' in arch else arch
-
-    model = _model_factory[arch]
+def create_model(backbone, heads, head_conv):
+    print('Creating model...')
+    num_layers = int(backbone.split('_')[-1]) if '_' in backbone else 0
+    name = backbone.split('_')[0] if '_' in backbone else backbone
+    model = _model_factory[name]
     model = model(num_layers=num_layers, heads=heads, head_conv=head_conv)
     return model
 
 
 def load_model(model, model_path, optimizer=None, lr=None, lr_step=None):
-    start_epoch = 0
     if model_path == 'last':
         model_path = 'checkpoints/model_last.pth'
 
@@ -65,11 +64,10 @@ def load_model(model, model_path, optimizer=None, lr=None, lr_step=None):
                 start_lr *= 0.1
         for param_group in optimizer.param_groups:
             param_group['lr'] = start_lr
-        print('Resumed optimizer with start lr', start_lr)
+        print(f'Resumed optimizer with lr: {start_lr}.')
+        return model, optimizer, start_epoch
     else:
-        print('No optimizer parameters in checkpoint.')
-
-    return model, optimizer, start_epoch
+        return model
 
 
 def save_model(path, epoch, model, optimizer=None):

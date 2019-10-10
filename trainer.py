@@ -9,7 +9,7 @@ import cfg
 from models.losses import FocalLoss
 from models.losses import RegL1Loss
 from models.decode import ctdet_decode
-from models.utils import _sigmoid
+from utils.utils import _sigmoid
 from utils.debugger import Debugger
 from utils.oracle_utils import gen_oracle_map
 from models.data_parallel import DataParallel
@@ -45,15 +45,16 @@ class CtdetLoss(nn.Module):
             if opt.eval_oracle_hm:
                 output['hm'] = batch['hm']
             if opt.eval_oracle_wh:
-                output['wh'] = torch.from_numpy(gen_oracle_map(
-                    batch['wh'].detach().cpu().numpy(),
-                    batch['ind'].detach().cpu().numpy(),
-                    output['wh'].shape[3], output['wh'].shape[2])).to(opt.device)
+                output['wh'] = torch.from_numpy(
+                    gen_oracle_map(batch['wh'].detach().cpu().numpy(),
+                                   batch['ind'].detach().cpu().numpy(),
+                                   output['wh'].shape[3], output['wh'].shape[2])).to(opt.device)
+
             if opt.eval_oracle_offset:
-                output['reg'] = torch.from_numpy(gen_oracle_map(
-                    batch['reg'].detach().cpu().numpy(),
-                    batch['ind'].detach().cpu().numpy(),
-                    output['reg'].shape[3], output['reg'].shape[2])).to(opt.device)
+                output['reg'] = torch.from_numpy(
+                    gen_oracle_map(batch['reg'].detach().cpu().numpy(),
+                                   batch['ind'].detach().cpu().numpy(),
+                                   output['reg'].shape[3], output['reg'].shape[2])).to(opt.device)
 
             hm_loss += FocalLoss(output['hm'], batch['hm']) / opt.num_stacks
             wh_loss += RegL1Loss(output['wh'], batch['reg_mask'], batch['ind'], batch['wh']) / opt.num_stacks
@@ -75,11 +76,12 @@ class CtdetTrainer:
     def debug(self, batch, output, iter_id):
         opt = self.opt
         reg = output['reg'] if opt.reg_offset else None
-        dets = ctdet_decode(output['hm'], output['wh'], reg=reg, cat_spec_wh=opt.cat_spec_wh, K=opt.K)
+        dets = ctdet_decode(output['hm'], output['wh'], reg=reg, K=opt.K)
         dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
         dets[:, :, :4] *= opt.down_ratio
         dets_gt = batch['meta']['gt_det'].numpy().reshape(1, -1, dets.shape[2])
         dets_gt[:, :, :4] *= opt.down_ratio
+
         for i in range(1):
             debugger = Debugger(dataset=opt.dataset, ipynb=(opt.debug == 3), theme=opt.debugger_theme)
             img = batch['input'][i].detach().cpu().numpy().transpose(1, 2, 0)
@@ -89,6 +91,7 @@ class CtdetTrainer:
             debugger.add_blend_img(img, pred, 'pred_hm')
             debugger.add_blend_img(img, gt, 'gt_hm')
             debugger.add_img(img, img_id='out_pred')
+
             for k in range(len(dets[i])):
                 if dets[i, k, 4] > opt.center_thresh:
                     debugger.add_coco_bbox(dets[i, k, :4], dets[i, k, -1], dets[i, k, 4], img_id='out_pred')
@@ -105,7 +108,8 @@ class CtdetTrainer:
 
     def set_device(self, gpus, chunk_sizes, device):
         if len(gpus) > 1:
-            self.model_with_loss = DataParallel(self.model_with_loss, device_ids=gpus, chunk_sizes=chunk_sizes).to(device)
+            self.model_with_loss = DataParallel(self.model_with_loss, device_ids=gpus, chunk_sizes=chunk_sizes).to(
+                device)
         else:
             self.model_with_loss = self.model_with_loss.to(device)
 

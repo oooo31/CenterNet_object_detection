@@ -66,12 +66,15 @@ class COCO(data.Dataset):
     def _to_float(x):
         return float("{:.2f}".format(x))
 
-    def convert_eval_format(self, all_bboxes):
+    def __len__(self):
+        return self.num_samples
+
+    def run_eval(self, results, save_dir):
         detections = []
-        for image_id in all_bboxes:
-            for cls_ind in all_bboxes[image_id]:
+        for image_id in results:
+            for cls_ind in results[image_id]:
                 category_id = self._valid_ids[cls_ind - 1]
-                for bbox in all_bboxes[image_id][cls_ind]:
+                for bbox in results[image_id][cls_ind]:
                     bbox[2] -= bbox[0]
                     bbox[3] -= bbox[1]
                     score = bbox[4]
@@ -83,13 +86,8 @@ class COCO(data.Dataset):
                                  "score": float("{:.2f}".format(score))}
 
                     detections.append(detection)
-        return detections
 
-    def __len__(self):
-        return self.num_samples
-
-    def run_eval(self, results, save_dir):
-        json.dump(self.convert_eval_format(results), open('{}/results.json'.format(save_dir), 'w'))
+        json.dump(detections, open('{}/results.json'.format(save_dir), 'w'))
         coco_dets = self.coco.loadRes('{}/results.json'.format(save_dir))
         coco_eval = COCOeval(self.coco, coco_dets, "bbox")
         coco_eval.evaluate()

@@ -3,11 +3,11 @@ import pdb
 import numpy as np
 import time
 import torch
+
 from utils.post_process import ctdet_post_process
 from models.decode import ctdet_decode
-from models.utils import flip_tensor
+from utils.utils import flip_tensor
 from models.model import create_model, load_model
-from utils.image import get_affine_transform
 from utils.debugger import Debugger
 
 
@@ -24,41 +24,11 @@ class CtdetDetector(object):
         self.model = self.model.to(opt.device)
         self.model.eval()
 
-        self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
-        self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
         self.max_per_image = 100
         self.num_classes = opt.num_classes
         self.scales = opt.test_scales
         self.opt = opt
         self.pause = True
-
-    def pre_process(self, image, scale, meta=None):
-        height, width = image.shape[0:2]
-        new_height = int(height * scale)
-        new_width = int(width * scale)
-        if self.opt.fix_res:
-            inp_height, inp_width = self.opt.input_h, self.opt.input_w
-            c = np.array([new_width / 2., new_height / 2.], dtype=np.float32)
-            s = max(height, width) * 1.0
-        else:
-            inp_height = (new_height | self.opt.pad) + 1
-            inp_width = (new_width | self.opt.pad) + 1
-            c = np.array([new_width // 2, new_height // 2], dtype=np.float32)
-            s = np.array([inp_width, inp_height], dtype=np.float32)
-
-        trans_input = get_affine_transform(c, s, 0, [inp_width, inp_height])
-        resized_image = cv2.resize(image, (new_width, new_height))
-        inp_image = cv2.warpAffine(resized_image, trans_input, (inp_width, inp_height), flags=cv2.INTER_LINEAR)
-        inp_image = ((inp_image / 255. - self.mean) / self.std).astype(np.float32)
-
-        images = inp_image.transpose(2, 0, 1).reshape(1, 3, inp_height, inp_width)
-        if self.opt.flip_test:
-            images = np.concatenate((images, images[:, :, :, ::-1]), axis=0)
-        images = torch.from_numpy(images)
-        meta = {'c': c, 's': s,
-                'out_height': inp_height // self.opt.down_ratio,
-                'out_width': inp_width // self.opt.down_ratio}
-        return images, meta
 
     def process(self, images, return_time=False):
         with torch.no_grad():
@@ -66,7 +36,7 @@ class CtdetDetector(object):
 
             hm = output['hm'].sigmoid_()
             wh = output['wh']
-            reg = output['reg'] if self.opt.reg_offset else None
+            reg = output['reg']
 
             if self.opt.flip_test:
                 hm = (hm[0:1] + flip_tensor(hm[1:2])) / 2
@@ -94,12 +64,9 @@ class CtdetDetector(object):
     def merge_outputs(self, detections):
         results = {}
         for j in range(1, self.num_classes + 1):
-            results[j] = np.concatenate(
-                [detection[j] for detection in detections], axis=0).astype(np.float32)
-            # if len(self.scales) > 1 or self.opt.nms:
-            #    soft_nms(results[j], Nt=0.5, method=2)
-        scores = np.hstack(
-            [results[j][:, 4] for j in range(1, self.num_classes + 1)])
+            results[j] = np.concatenate([detection[j] for detection in detections], axis=0).astype(np.float32)
+
+        scores = np.hstack([results[j][:, 4] for j in range(1, self.num_classes + 1)])
         if len(scores) > self.max_per_image:
             kth = len(scores) - self.max_per_image
             thresh = np.partition(scores, kth)[kth]
@@ -132,8 +99,7 @@ class CtdetDetector(object):
         debugger.show_all_imgs(pause=self.pause)
 
     def run(self, image_or_path_or_tensor, meta=None):
-        load_time, pre_time, net_time, dec_time, post_time = 0, 0, 0, 0, 0
-        merge_time, tot_time = 0, 0
+        load_time, pre_time, net_time, dec_time, post_time, merge_time, tot_time = 0, 0, 0, 0, 0, 0, 0
         debugger = Debugger(ipynb=(self.opt.debug == 3), theme=self.opt.debugger_theme)
         start_time = time.time()
         pre_processed = False
@@ -159,6 +125,7 @@ class CtdetDetector(object):
                 images = pre_processed_images['images'][scale][0]
                 meta = pre_processed_images['meta'][scale]
                 meta = {k: v.numpy()[0] for k, v in meta.items()}
+
             images = images.to(self.opt.device)
             torch.cuda.synchronize()
             pre_process_time = time.time()

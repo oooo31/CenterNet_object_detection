@@ -1,9 +1,10 @@
 import os
 import cv2
+import argparse
 from utils.opts import opts
 from models.ctdet import CtdetDetector
 
-image_ext = ['jpg', 'jpeg', 'png', 'webp']
+image_ext = ['jpg', 'jpeg', 'png']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
 time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge']
 

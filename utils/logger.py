@@ -1,48 +1,40 @@
 import os
 import time
 import sys
+import cfg
 import torch
 import tensorboardX
 
 
-class Logger(object):
-    def __init__(self, opt):
+class Logger:
+    def __init__(self):
         """Create a summary writer logging to log_dir."""
-        if not os.path.exists(opt.save_dir):
-            os.makedirs(opt.save_dir)
-        if not os.path.exists(opt.debug_dir):
-            os.makedirs(opt.debug_dir)
-
         time_str = time.strftime('%Y-%m-%d-%H-%M')
+        log_path = cfg.log_dir + f'/{time_str}'
+        os.makedirs(log_path)
+        file_name = os.path.join(log_path, 'log.txt')
 
-        args = dict((name, getattr(opt, name)) for name in dir(opt)
-                    if not name.startswith('_'))
-        file_name = os.path.join(opt.save_dir, 'opt.txt')
-        with open(file_name, 'wt') as opt_file:
-            opt_file.write('==> torch version: {}\n'.format(torch.__version__))
-            opt_file.write('==> cudnn version: {}\n'.format(torch.backends.cudnn.version()))
-            opt_file.write('==> Cmd:\n')
-            opt_file.write(str(sys.argv))
-            opt_file.write('\n==> Opt:\n')
-            for k, v in sorted(args.items()):
-                opt_file.write('  %s: %s\n' % (str(k), str(v)))
+        with open(file_name, 'wt') as log_file:
+            log_file.write('torch version: {}\n'.format(torch.__version__))
+            log_file.write('cudnn version: {}\n'.format(torch.backends.cudnn.version()))
+            log_file.write(f'Cmd:{str(sys.argv)}\n')
 
-        log_dir = opt.save_dir + '/logs_{}'.format(time_str)
+            # log_file.write('\n==> Opt:\n')
+            # for k, v in sorted(args.items()):
+            #     log_file.write('  %s: %s\n' % (str(k), str(v)))
 
-        self.writer = tensorboardX.SummaryWriter(log_dir=log_dir)
-        self.log = open(log_dir + '/log.txt', 'w')
-        try:
-            os.system('cp {}/opt.txt {}/'.format(opt.save_dir, log_dir))
-        except:
-            pass
+        self.writer = tensorboardX.SummaryWriter(log_dir=log_path)
+        self.log = open(log_path + '/log.txt', 'w')
+
         self.start_line = True
 
     def write(self, txt):
         if self.start_line:
             time_str = time.strftime('%Y-%m-%d-%H-%M')
-            self.log.write('{}: {}'.format(time_str, txt))
+            self.log.write(f'{time_str}: {txt}')
         else:
             self.log.write(txt)
+
         self.start_line = False
         if '\n' in txt:
             self.start_line = True
