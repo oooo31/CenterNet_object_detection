@@ -17,23 +17,28 @@ parser.add_argument('--backbone', default='dla_34', help='including res_101, res
 parser.add_argument('--batch_size', type=int, default=32, help='batch size')
 parser.add_argument('--resume', default=None, type=str, help='The path of checkpoint file to resume training from, '
                                                              '\'last\' for model_last.pth.')
+# ground truth validation
+parser.add_argument('--eval_gt_hm', action='store_true', help='use ground center heatmap.')
+parser.add_argument('--eval_gt_wh', action='store_true', help='use ground truth bounding box size.')
+parser.add_argument('--eval_gt_offset', action='store_true', help='use ground truth local heatmap offset.')
 args = parser.parse_args()
 
 logger = Logger()
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
-device = torch.device('cuda' if '-1' not in args.gpus else 'cpu')
-head_channel = 256 if 'dla' in args.backbone else 64
+args.device = torch.device('cuda' if '-1' not in args.gpus else 'cpu')
+
+
 lr = (args.batch_size / 32) * cfg.init_lr
 
-model = create_model(args.backbone, cfg.heads, head_channel)
-optimizer = torch.optim.Adam(model.parameters(), lr)
+net = create_model(args.backbone, cfg.heads, head_channel)
+optimizer = torch.optim.Adam(net.parameters(), lr)
 
 start_epoch = 0
 
 if args.resume:
     model, optimizer, start_epoch = load_model(model, args.resume, optimizer, lr, cfg.lr_step)
 
-trainer = CtdetTrainer(opt, model, optimizer)
+trainer = CtdetTrainer(args, model, optimizer)
 trainer.set_device(opt.gpus, opt.chunk_sizes, device)
 
 print('Setting up data...')

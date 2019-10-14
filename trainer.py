@@ -6,6 +6,7 @@ from progress.bar import Bar
 import torch.nn as nn
 
 import cfg
+from models.model import create_model
 from models.losses import FocalLoss
 from models.losses import RegL1Loss
 from models.decode import ctdet_decode
@@ -29,36 +30,35 @@ class ModelWithLoss(nn.Module):
 
 
 class CtdetLoss(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, args):
         super().__init__()
-        self.opt = opt
+        self.args = args
+        self.num_stacks = 2 if args.backbone == 'hourglass' else 1
 
     def forward(self, outputs, batch):
-        opt = self.opt
         hm_loss, wh_loss, off_loss = 0, 0, 0
 
-        for s in range(opt.num_stacks):
+        for s in range(self.num_stacks):
             output = outputs[s]
-
             output['hm'] = _sigmoid(output['hm'])
 
-            if opt.eval_oracle_hm:
+            if self.args.eval_gt_hm:
                 output['hm'] = batch['hm']
-            if opt.eval_oracle_wh:
+            if self.args.eval_gt_wh:
                 output['wh'] = torch.from_numpy(
                     gen_oracle_map(batch['wh'].detach().cpu().numpy(),
                                    batch['ind'].detach().cpu().numpy(),
-                                   output['wh'].shape[3], output['wh'].shape[2])).to(opt.device)
+                                   output['wh'].shape[3], output['wh'].shape[2])).to(self.args.device)
 
-            if opt.eval_oracle_offset:
+            if self.args.eval_gt_offset:
                 output['reg'] = torch.from_numpy(
                     gen_oracle_map(batch['reg'].detach().cpu().numpy(),
                                    batch['ind'].detach().cpu().numpy(),
-                                   output['reg'].shape[3], output['reg'].shape[2])).to(opt.device)
+                                   output['reg'].shape[3], output['reg'].shape[2])).to(self.args.device)
 
-            hm_loss += FocalLoss(output['hm'], batch['hm']) / opt.num_stacks
-            wh_loss += RegL1Loss(output['wh'], batch['reg_mask'], batch['ind'], batch['wh']) / opt.num_stacks
-            off_loss += RegL1Loss(output['reg'], batch['reg_mask'], batch['ind'], batch['reg']) / opt.num_stacks
+            hm_loss += FocalLoss(output['hm'], batch['hm']) / self.num_stacks
+            wh_loss += RegL1Loss(output['wh'], batch['reg_mask'], batch['ind'], batch['wh']) / self.num_stacks
+            off_loss += RegL1Loss(output['reg'], batch['reg_mask'], batch['ind'], batch['reg']) / self.num_stacks
 
         loss = cfg.hm_weight * hm_loss + cfg.wh_weight * wh_loss + cfg.off_weight * off_loss
         loss_stats = {'loss': loss, 'hm_loss': hm_loss, 'wh_loss': wh_loss, 'off_loss': off_loss}
@@ -66,12 +66,14 @@ class CtdetLoss(nn.Module):
 
 
 class CtdetTrainer:
-    def __init__(self, opt, model, optimizer):
-        self.opt = opt
-        self.optimizer = optimizer
+    def __init__(self, args):
+        self.head_channel = 256 if 'dla' in args.backbone else 64
+        self.net = create_model(args.backbone, cfg.heads, self.head_channel)
+        self.loss = CtdetLoss(args)
+        self.lr = (args.batch_size / 32) * cfg.init_lr
+        self.optimizer = torch.optim.Adam(self.net.parameters(), self.lr)
         self.loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss']
-        self.loss = CtdetLoss(opt)
-        self.model_with_loss = ModelWithLoss(model, self.loss)
+        self.model_with_loss = ModelWithLoss(self.net, self.loss)
 
     def debug(self, batch, output, iter_id):
         opt = self.opt
